@@ -1,5 +1,5 @@
 {
-  "name": "angular-resizable-element-hgm",
+  "name": "angular-resizable-element",
   "version": "5.0.0",
   "description": "An angular 12.0+ directive that allows an element to be dragged and resized",
   "scripts": {
@@ -17,6 +17,7 @@
     "prerelease": "npm test",
     "release:git": "standard-version && git push --follow-tags origin master",
     "release:npm": "npm run build:lib && npm publish dist/angular-resizable-element",
+    "release:git-dist": "npm run build:lib && push-dir --dir dist/angular-resizable-element --branch dist",
     "release": "npm run release:git && npm run release:npm",
     "postrelease": "npm run gh-pages",
     "gh-pages": "npm run build:clean && npm run build:demo && npm run compodoc && ng deploy && npm run build:clean",
@@ -80,6 +81,7 @@
     "prettier": "^2.3.2",
     "pretty-quick": "^3.1.1",
     "process": "^0.11.10",
+    "push-dir": "^0.4.1",
     "rxjs": "^7.3.0",
     "sinon": "^11.1.2",
     "sinon-chai": "^3.7.0",
