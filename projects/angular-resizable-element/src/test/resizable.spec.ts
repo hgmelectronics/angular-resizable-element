@@ -67,9 +67,11 @@ describe('resizable directive', () => {
         [resizeCursors]="resizeCursors"
         [ghostElementPositioning]="ghostElementPositioning"
         [allowNegativeResizes]="allowNegativeResizes"
+        [resizeMoveThreshold]="resizeMoveThreshold"
         (resizeStart)="resizeStart($event)"
         (resizing)="resizing($event)"
         (resizeEnd)="resizeEnd($event)"
+        (clicked)="clicked($event)"
       >
         <div
           *ngIf="resizeEdges.top"
@@ -105,6 +107,7 @@ describe('resizable directive', () => {
     resizeStart: sinon.SinonSpy = sinon.spy();
     resizing: sinon.SinonSpy = sinon.spy();
     resizeEnd: sinon.SinonSpy = sinon.spy();
+    clicked: sinon.SinonSpy = sinon.spy();
     validate: sinon.SinonStub = sinon.stub().returns(true);
     resizeEdges: Edges = {
       top: true,
@@ -118,6 +121,7 @@ describe('resizable directive', () => {
     ghostElementPositioning: 'fixed' | 'absolute' = 'fixed';
     showResizeHandle = false;
     allowNegativeResizes = false;
+    resizeMoveThreshold = 0;
   }
 
   function triggerDomEvent(
@@ -1273,9 +1277,11 @@ describe('resizable directive', () => {
           [resizeSnapGrid]="resizeSnapGrid"
           [resizeCursors]="resizeCursors"
           [ghostElementPositioning]="ghostElementPositioning"
+          [resizeMoveThreshold]="resizeMoveThreshold"
           (resizeStart)="resizeStart($event)"
           (resizing)="resizing($event)"
-          (resizeEnd)="resizeEnd($event)">
+          (resizeEnd)="resizeEnd($event)"
+          (clicked)="clicked($event)">
           <div
             *ngIf="resizeEdges.top"
             class="resize-handle-top"
@@ -1625,5 +1631,49 @@ describe('resizable directive', () => {
     const clonedCanvas = clonedDiv.children[0] as HTMLCanvasElement;
     const actualCanvasData = clonedCanvas.toDataURL();
     expect(actualCanvasData).to.equal(canvasData);
+  });
+
+  it('should still emit resize event with click enabled', () => {
+    const fixture: ComponentFixture<TestComponent> = createComponent();
+    fixture.componentInstance.resizeMoveThreshold = 2;
+    fixture.detectChanges();
+    const handle = fixture.nativeElement.querySelector('.resize-handle-left');
+    triggerDomEvent('mousedown', handle, {
+      clientX: 100,
+      clientY: 210,
+    });
+    triggerDomEvent('mousemove', handle, {
+      clientX: 95,
+      clientY: 210,
+    });
+    triggerDomEvent('mouseup', handle, {
+      clientX: 95,
+      clientY: 210,
+    });
+    expect(fixture.componentInstance.resizeEnd).to.have.been.calledOnce;
+    expect(fixture.componentInstance.clicked).not.to.have.been.called;
+  });
+
+  it('should emit only clicked event on small drag', () => {
+    const fixture: ComponentFixture<TestComponent> = createComponent();
+    fixture.componentInstance.resizeMoveThreshold = 2;
+    fixture.detectChanges();
+    const handle = fixture.nativeElement.querySelector('.resize-handle-left');
+    triggerDomEvent('mousedown', handle, {
+      clientX: 100,
+      clientY: 210,
+    });
+    triggerDomEvent('mousemove', handle, {
+      clientX: 99,
+      clientY: 210,
+    });
+    triggerDomEvent('mouseup', handle, {
+      clientX: 99,
+      clientY: 210,
+    });
+    expect(fixture.componentInstance.resizeStart).not.to.have.been.called;
+    expect(fixture.componentInstance.resizing).not.to.have.been.called;
+    expect(fixture.componentInstance.resizeEnd).not.to.have.been.called;
+    expect(fixture.componentInstance.clicked).to.have.been.calledOnce;
   });
 });

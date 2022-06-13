@@ -25,6 +25,7 @@ import {
 } from 'rxjs/operators';
 import { Edges } from './interfaces/edges.interface';
 import { BoundingRectangle } from './interfaces/bounding-rectangle.interface';
+import { ClickEvent } from './interfaces/click-event.interface';
 import { ResizeEvent } from './interfaces/resize-event.interface';
 import { IS_TOUCH_DEVICE } from './util/is-touch-device';
 import { deepCloneNode } from './util/clone-node';
@@ -165,6 +166,10 @@ function getResizeCursor(edges: Edges, cursors: ResizeCursors): string {
   }
 }
 
+export type EdgesDiff = {
+  [Property in keyof Edges]: Exclude<Edges[Property], boolean>;
+};
+
 function getEdgesDiff({
   edges,
   initialRectangle,
@@ -173,18 +178,25 @@ function getEdgesDiff({
   edges: Edges;
   initialRectangle: BoundingRectangle;
   newRectangle: BoundingRectangle;
-}): Edges {
-  const edgesDiff: Edges = {};
+}): EdgesDiff {
+  const edgesDiff: EdgesDiff = {};
   Object.keys(edges).forEach((edge) => {
     edgesDiff[edge] = (newRectangle[edge] || 0) - (initialRectangle[edge] || 0);
   });
   return edgesDiff;
 }
 
+const getTotalDiff = (edgesDiff: EdgesDiff) =>
+  Object.values(edgesDiff)
+    .map((edge) => Math.abs(edge || 0))
+    .reduce((a, b) => Math.max(a, b), 0);
+
 const RESIZE_ACTIVE_CLASS: string = 'resize-active';
 const RESIZE_GHOST_ELEMENT_CLASS: string = 'resize-ghost-element';
 
 export const MOUSE_MOVE_THROTTLE_MS: number = 50;
+
+export const DISABLE_CLICK_MOVE_THRESHOLD: number = 0;
 
 /**
  * Place this on an element to make it resizable. For example:
@@ -245,6 +257,13 @@ export class ResizableDirective implements OnInit, OnDestroy {
   @Input() mouseMoveThrottleMS: number = MOUSE_MOVE_THROTTLE_MS;
 
   /**
+   * The distance in pixels that the mouse must move to trigger a resize event, <= 0 to disable (default)
+   *
+   * Below this threshold, a click event will be emitted instead
+   */
+  @Input() resizeMoveThreshold: number = DISABLE_CLICK_MOVE_THRESHOLD;
+
+  /**
    * Called when the mouse is pressed and a resize event is about to begin. `$event` is a `ResizeEvent` object.
    */
   @Output() resizeStart = new EventEmitter<ResizeEvent>();
@@ -258,6 +277,11 @@ export class ResizableDirective implements OnInit, OnDestroy {
    * Called after the mouse is released after a resize event. `$event` is a `ResizeEvent` object.
    */
   @Output() resizeEnd = new EventEmitter<ResizeEvent>();
+
+  /**
+   * Called after the mouse is released after a click event. `$event` is a `ClickEvent` object.
+   */
+  @Output() clicked = new EventEmitter<ClickEvent>();
 
   /**
    * @hidden
@@ -340,6 +364,7 @@ export class ResizableDirective implements OnInit, OnDestroy {
       startingRect: BoundingRectangle;
       currentRect: BoundingRectangle;
       clonedNode?: HTMLElement;
+      visible: boolean;
     } | null;
 
     const removeGhostElement = () => {
@@ -356,6 +381,76 @@ export class ResizableDirective implements OnInit, OnDestroy {
         ...DEFAULT_RESIZE_CURSORS,
         ...this.resizeCursors,
       };
+    };
+
+    const startVisibleResize = (): void => {
+      currentResize!.visible = true;
+      const resizeCursors = getResizeCursors();
+      const cursor = getResizeCursor(currentResize!.edges, resizeCursors);
+      this.renderer.setStyle(document.body, 'cursor', cursor);
+      this.setElementClass(this.elm, RESIZE_ACTIVE_CLASS, true);
+      if (this.enableGhostResize) {
+        currentResize!.clonedNode = deepCloneNode(this.elm.nativeElement);
+        this.elm.nativeElement.parentElement.appendChild(
+          currentResize!.clonedNode
+        );
+        this.renderer.setStyle(this.elm.nativeElement, 'visibility', 'hidden');
+        this.renderer.setStyle(
+          currentResize!.clonedNode,
+          'position',
+          this.ghostElementPositioning
+        );
+        this.renderer.setStyle(
+          currentResize!.clonedNode,
+          'left',
+          `${currentResize!.startingRect.left}px`
+        );
+        this.renderer.setStyle(
+          currentResize!.clonedNode,
+          'top',
+          `${currentResize!.startingRect.top}px`
+        );
+        this.renderer.setStyle(
+          currentResize!.clonedNode,
+          'height',
+          `${currentResize!.startingRect.height}px`
+        );
+        this.renderer.setStyle(
+          currentResize!.clonedNode,
+          'width',
+          `${currentResize!.startingRect.width}px`
+        );
+        this.renderer.setStyle(
+          currentResize!.clonedNode,
+          'cursor',
+          getResizeCursor(currentResize!.edges, resizeCursors)
+        );
+        this.renderer.addClass(
+          currentResize!.clonedNode,
+          RESIZE_GHOST_ELEMENT_CLASS
+        );
+        currentResize!.clonedNode!.scrollTop = currentResize!.startingRect
+          .scrollTop as number;
+        currentResize!.clonedNode!.scrollLeft = currentResize!.startingRect
+          .scrollLeft as number;
+      }
+      if (this.resizeStart.observers.length > 0) {
+        this.zone.run(() => {
+          this.resizeStart.emit({
+            edges: getEdgesDiff({
+              edges: currentResize!.edges,
+              initialRectangle: currentResize!.startingRect,
+              newRectangle: currentResize!.startingRect,
+            }),
+            rectangle: getNewBoundingRectangle(
+              currentResize!.startingRect,
+              {},
+              0,
+              0
+            ),
+          });
+        });
+      }
     };
 
     const mousedrag: Observable<any> = mousedown$
@@ -497,37 +592,44 @@ export class ResizableDirective implements OnInit, OnDestroy {
         takeUntil(this.destroy$)
       )
       .subscribe((newBoundingRect: BoundingRectangle) => {
-        if (currentResize && currentResize.clonedNode) {
+        const edges = getEdgesDiff({
+          edges: currentResize!.edges,
+          initialRectangle: currentResize!.startingRect,
+          newRectangle: newBoundingRect,
+        });
+        if (
+          !currentResize!.visible &&
+          getTotalDiff(edges) >= this.resizeMoveThreshold
+        ) {
+          startVisibleResize();
+        }
+        if (currentResize!.visible && currentResize!.clonedNode) {
           this.renderer.setStyle(
-            currentResize.clonedNode,
+            currentResize!.clonedNode,
             'height',
             `${newBoundingRect.height}px`
           );
           this.renderer.setStyle(
-            currentResize.clonedNode,
+            currentResize!.clonedNode,
             'width',
             `${newBoundingRect.width}px`
           );
           this.renderer.setStyle(
-            currentResize.clonedNode,
+            currentResize!.clonedNode,
             'top',
             `${newBoundingRect.top}px`
           );
           this.renderer.setStyle(
-            currentResize.clonedNode,
+            currentResize!.clonedNode,
             'left',
             `${newBoundingRect.left}px`
           );
         }
 
-        if (this.resizing.observers.length > 0) {
+        if (currentResize!.visible && this.resizing.observers.length > 0) {
           this.zone.run(() => {
             this.resizing.emit({
-              edges: getEdgesDiff({
-                edges: currentResize!.edges,
-                initialRectangle: currentResize!.startingRect,
-                newRectangle: newBoundingRect,
-              }),
+              edges,
               rectangle: newBoundingRect,
             });
           });
@@ -557,76 +659,18 @@ export class ResizableDirective implements OnInit, OnDestroy {
           edges,
           startingRect,
           currentRect: startingRect,
+          visible: false,
         };
-        const resizeCursors = getResizeCursors();
-        const cursor = getResizeCursor(currentResize.edges, resizeCursors);
-        this.renderer.setStyle(document.body, 'cursor', cursor);
-        this.setElementClass(this.elm, RESIZE_ACTIVE_CLASS, true);
-        if (this.enableGhostResize) {
-          currentResize.clonedNode = deepCloneNode(this.elm.nativeElement);
-          this.elm.nativeElement.parentElement.appendChild(
-            currentResize.clonedNode
-          );
-          this.renderer.setStyle(
-            this.elm.nativeElement,
-            'visibility',
-            'hidden'
-          );
-          this.renderer.setStyle(
-            currentResize.clonedNode,
-            'position',
-            this.ghostElementPositioning
-          );
-          this.renderer.setStyle(
-            currentResize.clonedNode,
-            'left',
-            `${currentResize.startingRect.left}px`
-          );
-          this.renderer.setStyle(
-            currentResize.clonedNode,
-            'top',
-            `${currentResize.startingRect.top}px`
-          );
-          this.renderer.setStyle(
-            currentResize.clonedNode,
-            'height',
-            `${currentResize.startingRect.height}px`
-          );
-          this.renderer.setStyle(
-            currentResize.clonedNode,
-            'width',
-            `${currentResize.startingRect.width}px`
-          );
-          this.renderer.setStyle(
-            currentResize.clonedNode,
-            'cursor',
-            getResizeCursor(currentResize.edges, resizeCursors)
-          );
-          this.renderer.addClass(
-            currentResize.clonedNode,
-            RESIZE_GHOST_ELEMENT_CLASS
-          );
-          currentResize.clonedNode!.scrollTop = currentResize.startingRect
-            .scrollTop as number;
-          currentResize.clonedNode!.scrollLeft = currentResize.startingRect
-            .scrollLeft as number;
-        }
-        if (this.resizeStart.observers.length > 0) {
-          this.zone.run(() => {
-            this.resizeStart.emit({
-              edges: getEdgesDiff({
-                edges,
-                initialRectangle: startingRect,
-                newRectangle: startingRect,
-              }),
-              rectangle: getNewBoundingRectangle(startingRect, {}, 0, 0),
-            });
-          });
+        if (this.resizeMoveThreshold <= 0) {
+          startVisibleResize();
         }
       });
 
-    mouseup$.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      if (currentResize) {
+    mouseup$.pipe(takeUntil(this.destroy$)).subscribe((event) => {
+      if (!currentResize) {
+        return;
+      }
+      if (currentResize.visible) {
         this.renderer.removeClass(this.elm.nativeElement, RESIZE_ACTIVE_CLASS);
         this.renderer.setStyle(document.body, 'cursor', '');
         this.renderer.setStyle(this.elm.nativeElement, 'cursor', '');
@@ -643,8 +687,14 @@ export class ResizableDirective implements OnInit, OnDestroy {
           });
         }
         removeGhostElement();
-        currentResize = null;
+      } else {
+        if (this.clicked.observers.length > 0) {
+          this.zone.run(() => {
+            this.clicked.emit(event);
+          });
+        }
       }
+      currentResize = null;
     });
   }
 

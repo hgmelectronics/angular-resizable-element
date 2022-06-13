@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { ResizeEvent } from 'angular-resizable-element';
+import { ClickEvent } from 'projects/angular-resizable-element/src/lib/interfaces/click-event.interface';
 
 @Component({
   selector: 'mwl-demo',
@@ -63,6 +64,8 @@ import { ResizeEvent } from 'angular-resizable-element';
         [validateResize]="validate"
         [enableGhostResize]="true"
         [resizeSnapGrid]="{ left: 50, right: 50 }"
+        [resizeMoveThreshold]="100"
+        (clicked)="onClicked($event)"
         (resizeEnd)="onResizeEnd($event)"
       >
         <div
@@ -85,12 +88,14 @@ import { ResizeEvent } from 'angular-resizable-element';
           mwlResizeHandle
           [resizeEdges]="{ bottom: true }"
         ></div>
+        {{ clickCoords }}
       </div>
     </div>
   `,
 })
 export class DemoComponent {
   public style: object = {};
+  public clickCoords = '';
 
   validate(event: ResizeEvent): boolean {
     const MIN_DIMENSIONS_PX: number = 50;
@@ -113,5 +118,9 @@ export class DemoComponent {
       width: `${event.rectangle.width}px`,
       height: `${event.rectangle.height}px`,
     };
+  }
+
+  onClicked(event: ClickEvent): void {
+    this.clickCoords = `Clicked ${event.clientX},${event.clientY}`;
   }
 }
