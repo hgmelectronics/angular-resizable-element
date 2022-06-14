@@ -1,0 +1,38 @@
+{
+  "name": "angular-resizable-element",
+  "version": "5.0.0",
+  "description": "An angular 12.0+ directive that allows an element to be dragged and resized",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mattlewis92/angular-resizable-element.git"
+  },
+  "keywords": [
+    "angular",
+    "angular2",
+    "resizable"
+  ],
+  "author": "Matt Lewis",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mattlewis92/angular-resizable-element/issues"
+  },
+  "homepage": "https://github.com/mattlewis92/angular-resizable-element#readme",
+  "peerDependencies": {
+    "@angular/core": ">=10.0.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-conventional-changelog"
+    }
+  },
+  "main": "bundles/angular-resizable-element.umd.js",
+  "module": "fesm2015/angular-resizable-element.js",
+  "es2015": "fesm2015/angular-resizable-element.js",
+  "esm2015": "esm2015/angular-resizable-element.js",
+  "fesm2015": "fesm2015/angular-resizable-element.js",
+  "typings": "angular-resizable-element.d.ts",
+  "sideEffects": false,
+  "dependencies": {
+    "tslib": "^2.2.0"
+  }
+}

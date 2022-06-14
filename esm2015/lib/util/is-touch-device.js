@@ -1,0 +1,15 @@
+/**
+ * @hidden
+ */
+export const IS_TOUCH_DEVICE = (() => {
+    // In case we're in Node.js environment.
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    else {
+        return ('ontouchstart' in window ||
+            navigator.maxTouchPoints > 0 ||
+            navigator.msMaxTouchPoints > 0);
+    }
+})();
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaXMtdG91Y2gtZGV2aWNlLmpzIiwic291cmNlUm9vdCI6IiIsInNvdXJjZXMiOlsiLi4vLi4vLi4vLi4vLi4vcHJvamVjdHMvYW5ndWxhci1yZXNpemFibGUtZWxlbWVudC9zcmMvbGliL3V0aWwvaXMtdG91Y2gtZGV2aWNlLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiJBQUFBOztHQUVHO0FBQ0gsTUFBTSxDQUFDLE1BQU0sZUFBZSxHQUFZLENBQUMsR0FBRyxFQUFFO0lBQzVDLHdDQUF3QztJQUN4QyxJQUFJLE9BQU8sTUFBTSxLQUFLLFdBQVcsRUFBRTtRQUNqQyxPQUFPLEtBQUssQ0FBQztLQUNkO1NBQU07UUFDTCxPQUFPLENBQ0wsY0FBYyxJQUFJLE1BQU07WUFDeEIsU0FBUyxDQUFDLGNBQWMsR0FBRyxDQUFDO1lBQzVCLFNBQVMsQ0FBQyxnQkFBZ0IsR0FBRyxDQUFDLENBQy9CLENBQUM7S0FDSDtBQUNILENBQUMsQ0FBQyxFQUFFLENBQUMiLCJzb3VyY2VzQ29udGVudCI6WyIvKipcclxuICogQGhpZGRlblxyXG4gKi9cclxuZXhwb3J0IGNvbnN0IElTX1RPVUNIX0RFVklDRTogYm9vbGVhbiA9ICgoKSA9PiB7XHJcbiAgLy8gSW4gY2FzZSB3ZSdyZSBpbiBOb2RlLmpzIGVudmlyb25tZW50LlxyXG4gIGlmICh0eXBlb2Ygd2luZG93ID09PSAndW5kZWZpbmVkJykge1xyXG4gICAgcmV0dXJuIGZhbHNlO1xyXG4gIH0gZWxzZSB7XHJcbiAgICByZXR1cm4gKFxyXG4gICAgICAnb250b3VjaHN0YXJ0JyBpbiB3aW5kb3cgfHxcclxuICAgICAgbmF2aWdhdG9yLm1heFRvdWNoUG9pbnRzID4gMCB8fFxyXG4gICAgICBuYXZpZ2F0b3IubXNNYXhUb3VjaFBvaW50cyA+IDBcclxuICAgICk7XHJcbiAgfVxyXG59KSgpO1xyXG4iXX0=
